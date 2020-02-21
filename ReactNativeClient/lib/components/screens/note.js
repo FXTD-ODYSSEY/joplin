@@ -13,6 +13,7 @@ const { BackButtonService } = require('lib/services/back-button.js');
 const NavService = require('lib/services/NavService.js');
 const BaseModel = require('lib/BaseModel.js');
 const { ActionButton } = require('lib/components/action-button.js');
+const { MarkdwonToolbarComponent } = require('lib/components/markdown-toolbar.js');
 const { fileExtension, safeFileExtension } = require('lib/path-utils.js');
 const mimeUtils = require('lib/mime-utils.js').mime;
 const { ScreenHeader } = require('lib/components/screen-header.js');
@@ -45,6 +46,11 @@ class NoteScreenComponent extends BaseScreenComponent {
 		return { header: null };
 	}
 
+	selection = {
+		start: 0,
+		end: 0,
+	};
+
 	constructor() {
 		super();
 		this.state = {
@@ -60,6 +66,15 @@ class NoteScreenComponent extends BaseScreenComponent {
 			fromShare: false,
 			showCamera: false,
 			noteResources: {},
+
+			// NOTE TextInput selection
+			selection: null,
+			toolbarEditFlag: false,
+			keyboadrdHidden: false,
+			bodyFocus: false,
+
+			bodyScrollEvent: null,
+			bodyPanEvent: null,
 
 			// HACK: For reasons I can't explain, when the WebView is present, the TextInput initially does not display (It's just a white rectangle with
 			// no visible text). It will only appear when tapping it or doing certain action like selecting text on the webview. The bug started to
@@ -762,6 +777,27 @@ class NoteScreenComponent extends BaseScreenComponent {
 		if (fieldToFocus === 'body') this.refs.noteBodyTextField.focus();
 	}
 
+	onSelectionChange = event => {
+		// NOTE https://github.com/facebook/react-native/issues/18316#issuecomment-561608985
+		// NOTE fix the android InputText setText and selection bug | soulution => https://github.com/mjmasn/SelectionCrash
+		const { selection } = event.nativeEvent;
+		this.selection = selection;
+		// NOTE set a flag prevent update selection every time | without this you cannot multiline edit in android
+		if (this.state.toolbarEditFlag) {
+			this.setState(
+				{
+					toolbarEditFlag: false,
+					selection,
+				},
+				() => {
+					this.setState({
+						selection: undefined,
+					});
+				},
+			);
+		}
+	};
+
 	async folderPickerOptions_valueChanged(itemValue) {
 		const note = this.state.note;
 
@@ -858,7 +894,8 @@ class NoteScreenComponent extends BaseScreenComponent {
 
 			// Note: blurOnSubmit is necessary to get multiline to work.
 			// See https://github.com/facebook/react-native/issues/12717#issuecomment-327001997
-			bodyComponent = <TextInput autoCapitalize="sentences" style={this.styles().bodyTextInput} ref="noteBodyTextField" multiline={true} value={note.body} onChangeText={text => this.body_changeText(text)} blurOnSubmit={false} selectionColor={theme.textSelectionColor} placeholder={_('Add body')} placeholderTextColor={theme.colorFaded} />;
+			bodyComponent = <TextInput autoCapitalize="sentences" style={this.styles().bodyTextInput} ref="noteBodyTextField" multiline={true} value={note.body} onChangeText={text => this.body_changeText(text)} blurOnSubmit={false} selectionColor={theme.textSelectionColor} placeholder={_('Add body')} placeholderTextColor={theme.colorFaded} onSelectionChange={this.onSelectionChange} selection={this.state.selection} showSoftInputOnFocus={!this.state.keyboadrdHidden} onFocus={() => this.setState({ bodyFocus: true })} onBlur={() => this.setState({ bodyFocus: false })} onScroll={(e) => { this.setState({ bodyScrollEvent: e.nativeEvent }) }} onTouchMove={(e) => { this.setState({ bodyPanEvent: e.nativeEvent }) }} />;
+			// onScroll={(e) => {this.setState({ bodyScrollEvent: e.nativeEvent })}} 
 		}
 
 		const renderActionButton = () => {
@@ -880,6 +917,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 		};
 
 		const actionButtonComp = renderActionButton();
+		const markdwonToolbar = this.state.mode == 'edit' ? <MarkdwonToolbarComponent NOTE={this} /> : null;
 
 		let showSaveButton = this.state.mode == 'edit' || this.isModified() || this.saveButtonHasBeenShown_;
 		let saveButtonDisabled = !this.isModified();
@@ -904,6 +942,7 @@ class NoteScreenComponent extends BaseScreenComponent {
 				<ScreenHeader folderPickerOptions={this.folderPickerOptions()} menuOptions={this.menuOptions()} showSaveButton={showSaveButton} saveButtonDisabled={saveButtonDisabled} onSaveButtonPress={this.saveNoteButton_press} showSideMenuButton={false} showSearchButton={false} />
 				{titleComp}
 				{bodyComponent}
+				{markdwonToolbar}
 				{actionButtonComp}
 
 				<SelectDateTimeDialog shown={this.state.alarmDialogShown} date={dueDate} onAccept={this.onAlarmDialogAccept} onReject={this.onAlarmDialogReject} />
