@@ -68,3 +68,5 @@ android/app/.settings/
 android/app/src/debug/res/
 
 pluginAssets/
+
+.history/*

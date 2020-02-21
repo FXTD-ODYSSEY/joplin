@@ -148,6 +148,11 @@ android {
 				storePassword JOPLIN_RELEASE_STORE_PASSWORD
 				keyAlias JOPLIN_RELEASE_KEY_ALIAS
 				keyPassword JOPLIN_RELEASE_KEY_PASSWORD
+			}else{
+				storeFile file(MYAPP_RELEASE_STORE_FILE)
+				storePassword MYAPP_RELEASE_STORE_PASSWORD
+				keyAlias MYAPP_RELEASE_KEY_ALIAS
+				keyPassword MYAPP_RELEASE_KEY_PASSWORD
 			}
 		}
 	}
